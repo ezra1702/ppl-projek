@@ -29,12 +29,9 @@ QR_DATA = {
     "ktm_ezra.png": "KTM-245150307111009",
     
     # Facilities
-    "facility_gkm_lt2.png": "FAC-f1",
-    "facility_lab_komputer.png": "FAC-f2",
-    "facility_ruang_rapat.png": "FAC-f3",
-    "facility_ps5_station_a.png": "FAC-f4",
-    "facility_ps5_station_b.png": "FAC-f5",
-    "facility_pc_gaming_1.png": "FAC-f6"
+    "facility_game_corner.png": "FAC-f1",
+    "facility_gkm_lt2.png": "FAC-f2",
+    "facility_lapangan_basket.png": "FAC-f3"
 }
 
 def generate_qr_codes():

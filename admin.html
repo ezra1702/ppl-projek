@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FILKOM BORROW - Admin & Operator Dashboard</title>
+  <title>PEMINJAMAN FILKOM - Admin & Operator Dashboard</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -39,20 +39,50 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    const DUMMY_STUDENTS = [
+      { 
+        nim: '245150300111002', 
+        name: 'Jahzeel', 
+        dob: '12 April 2006', 
+        major: 'Teknik Informatika', 
+        faculty: 'Ilmu Komputer', 
+        angkatan: '2024',
+        photo: '👨‍💻',
+        phone: '081234567890'
+      },
+      { 
+        nim: '245150300111008', 
+        name: 'Abdillah', 
+        dob: '25 September 2005', 
+        major: 'Sistem Informasi', 
+        faculty: 'Ilmu Komputer', 
+        angkatan: '2024',
+        photo: '🚀',
+        phone: '089876543210'
+      },
+      { 
+        nim: '245150307111009', 
+        name: 'Christama Ezra Yudianto', 
+        dob: '17 Februari 2006', 
+        major: 'Teknik Komputer', 
+        faculty: 'Ilmu Komputer', 
+        angkatan: '2024',
+        photo: './images/profile1.png',
+        phone: '082198084456'
+      }
+    ];
+
     const INITIAL_FACILITIES = [
-      { id: 'f1', name: 'GKM Lt.2', type: 'Ruangan', status: 'tersedia' },
-      { id: 'f2', name: 'Lab Komputer', type: 'Ruangan', status: 'tersedia' },
-      { id: 'f3', name: 'Ruang Rapat', type: 'Ruangan', status: 'tersedia' },
-      { id: 'f4', name: 'PS5 Station A', type: 'Game Corner', status: 'digunakan' },
-      { id: 'f5', name: 'PS5 Station B', type: 'Game Corner', status: 'tersedia' },
-      { id: 'f6', name: 'PC Gaming 1', type: 'Game Corner', status: 'tersedia' }
+      { id: 'f1', name: 'Game Corner', type: 'Game Corner', status: 'tersedia' },
+      { id: 'f2', name: 'GKM Lantai 2', type: 'Ruangan', status: 'tersedia' },
+      { id: 'f3', name: 'Lapangan Basket', type: 'Fasilitas Olahraga', status: 'tersedia' }
     ];
 
     const INITIAL_BOOKINGS = [
       {
         id: 'b1',
-        facilityId: 'f1',
-        facilityName: 'GKM Lt.2',
+        facilityId: 'f2',
+        facilityName: 'GKM Lantai 2',
         facilityType: 'Ruangan',
         studentNim: '245150300111002',
         studentName: 'Jahzeel',
@@ -60,12 +90,12 @@
         endTime: '2026-06-05T12:00',
         status: 'Menunggu',
         token: 'QR-RM-GKM2',
-        reason: ''
+        reason: 'Rapat Koordinasi'
       },
       {
         id: 'b2',
-        facilityId: 'f4',
-        facilityName: 'PS5 Station A',
+        facilityId: 'f1',
+        facilityName: 'Game Corner',
         facilityType: 'Game Corner',
         studentNim: '245150300111008',
         studentName: 'Abdillah',
@@ -73,7 +103,7 @@
         endTime: '2026-06-05T17:00',
         status: 'Aktif',
         token: 'QR-GC-8B92',
-        reason: ''
+        reason: 'Bermain Game (Rekreasi)'
       }
     ];
 
@@ -321,7 +351,7 @@
           bookingsRef.current = INITIAL_BOOKINGS;
 
           const initNotifs = [
-            { id: 'n1', studentNim: '245150300111002', message: 'Selamat datang di portal scan FILKOM Borrow.', read: false, time: 'Baru saja' }
+            { id: 'n1', studentNim: '245150300111002', message: 'Selamat datang di portal scan Peminjaman FILKOM.', read: false, time: 'Baru saja' }
           ];
           localStorage.setItem('filkom_notifications', JSON.stringify(initNotifs));
           setCheckoutMessage({ text: 'Database in-memory berhasil di-reset!', type: 'success' });
@@ -343,7 +373,7 @@
       };
 
       // Lists
-      const pendingRoomRequests = bookings.filter(b => b.status === 'Menunggu' && b.facilityType === 'Ruangan');
+      const pendingRoomRequests = bookings.filter(b => b.status === 'Menunggu');
       const activeBookings = bookings.filter(b => b.status === 'Aktif');
 
       return (
@@ -358,7 +388,7 @@
                   <span className="font-extrabold text-[12px] leading-none">ADM</span>
                 </div>
                 <div>
-                  <h1 className="font-extrabold text-sm sm:text-base tracking-wide text-cyan-400">FILKOM BORROW</h1>
+                  <h1 className="font-extrabold text-sm sm:text-base tracking-wide text-cyan-400">PEMINJAMAN FILKOM</h1>
                   <p className="text-[10px] text-slate-400">Dashboard Admin & Operator</p>
                 </div>
               </div>
@@ -366,7 +396,7 @@
               {/* Reset database button */}
               <button 
                 onClick={handleResetDatabase}
-                className="px-3 py-1.5 rounded-lg border border-rose-900 bg-rose-950/65 hover:bg-rose-900 text-rose-200 hover:text-white transition text-xs font-semibold"
+                className="px-3 py-1.5 rounded-lg border border-rose-900 bg-rose-955/65 hover:bg-rose-900 text-rose-200 hover:text-white transition text-xs font-semibold"
               >
                 Reset Database
               </button>
@@ -379,10 +409,10 @@
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-xl">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Permohonan Ruang (Pending)</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Permohonan Baru (Pending)</span>
                   <span className="text-3xl font-extrabold text-purple-400 mt-1 block">{pendingRoomRequests.length} Pengajuan</span>
                 </div>
-                <div className="p-3 bg-purple-950/40 rounded-xl text-purple-400 border border-purple-900/10">
+                <div className="p-3 bg-purple-955/40 rounded-xl text-purple-400 border border-purple-900/10">
                   ⏳
                 </div>
               </div>
@@ -392,7 +422,7 @@
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Sewa Aktif (Lobby)</span>
                   <span className="text-3xl font-extrabold text-cyan-400 mt-1 block">{activeBookings.length} Aktif</span>
                 </div>
-                <div className="p-3 bg-cyan-950/40 rounded-xl text-cyan-400 border border-cyan-900/10">
+                <div className="p-3 bg-cyan-955/40 rounded-xl text-cyan-400 border border-cyan-900/10">
                   ⚡
                 </div>
               </div>
@@ -404,7 +434,7 @@
                     {facilities.filter(f => f.status === 'digunakan').length} / {facilities.length} Unit
                   </span>
                 </div>
-                <div className="p-3 bg-emerald-950/40 rounded-xl text-emerald-400 border border-emerald-900/10">
+                <div className="p-3 bg-emerald-955/40 rounded-xl text-emerald-400 border border-emerald-900/10">
                   🏢
                 </div>
               </div>
@@ -417,23 +447,23 @@
                 
                 {/* Section A: Room Request Approvals (Staff) */}
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-                  <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Persetujuan Ruangan (Staf Gedung A)</h3>
+                  <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Persetujuan Peminjaman Fasilitas</h3>
                   
                   {rejectingBookingId && (
-                    <div className="p-4 bg-slate-950 rounded-xl border border-rose-900/50 space-y-3 shadow-inner">
+                    <div className="p-4 bg-slate-950 rounded-xl border border-rose-900/50 space-y-3 shadow-inner animate-in slide-in-from-top-1">
                       <div className="flex justify-between items-center text-rose-400 text-xs font-bold uppercase tracking-wider">
                         <span>Alasan Penolakan</span>
-                        <button onClick={() => setRejectingBookingId(null)} className="text-[10px] text-slate-500 hover:text-slate-300">Batal</button>
+                        <button onClick={() => setRejectingBookingId(null)} className="text-[10px] text-slate-500 hover:text-slate-350">Batal</button>
                       </div>
                       <input 
                         type="text"
                         value={rejectionReason}
                         onChange={(e) => setRejectionReason(e.target.value)}
-                        placeholder="Tulis alasan (misal: Ruangan sedang dibersihkan, Bentrok rapat)..."
+                        placeholder="Tulis alasan (misal: Bentrok jadwal, Fasilitas sedang perawatan)..."
                         className="w-full bg-slate-900 border border-slate-850 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
                       />
                       <div className="flex justify-end space-x-2">
-                        <button onClick={handleRejectRoom} className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-bold">Kirim Penolakan</button>
+                        <button onClick={handleRejectRoom} className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition">Kirim Penolakan</button>
                       </div>
                     </div>
                   )}
@@ -443,7 +473,7 @@
                       <thead className="bg-slate-950">
                         <tr>
                           <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Pemohon</th>
-                          <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Ruangan</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Unit Fasilitas</th>
                           <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Waktu</th>
                           <th className="px-4 py-2.5 text-center text-[10px] font-bold text-slate-500 uppercase">Aksi</th>
                         </tr>
@@ -452,41 +482,57 @@
                         {pendingRoomRequests.length === 0 ? (
                           <tr>
                             <td colSpan="4" className="px-4 py-6 text-center text-xs text-slate-550 italic">
-                              Tidak ada permohonan ruangan yang berstatus MENUNGGU.
+                              Tidak ada permohonan peminjaman yang berstatus MENUNGGU.
                             </td>
                           </tr>
                         ) : (
-                          pendingRoomRequests.map(b => (
-                            <tr key={b.id} className="hover:bg-slate-900/30">
-                              <td className="px-4 py-3 text-xs">
-                                <div className="font-bold text-slate-200">{b.studentName}</div>
-                                <div className="text-[10px] text-slate-500 font-mono">{b.studentNim}</div>
-                              </td>
-                              <td className="px-4 py-3 text-xs">
-                                <div className="font-bold text-slate-350">{b.facilityName}</div>
-                                {b.reason && <div className="text-[10px] text-amber-400 font-medium">Tujuan: {b.reason}</div>}
-                              </td>
-                              <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
-                                {new Date(b.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} s/d {new Date(b.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                              </td>
-                              <td className="px-4 py-3 text-center whitespace-nowrap">
-                                <div className="inline-flex space-x-1.5">
-                                  <button
-                                    onClick={() => handleApproveRoom(b.id)}
-                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold"
-                                  >
-                                    Setujui
-                                  </button>
-                                  <button
-                                    onClick={() => handleOpenReject(b.id)}
-                                    className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900/70 border border-rose-900/30 text-rose-300 rounded text-[10px] font-bold"
-                                  >
-                                    Tolak
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
+                          pendingRoomRequests.map(b => {
+                            const student = DUMMY_STUDENTS.find(s => s.nim === b.studentNim);
+                            return (
+                              <tr key={b.id} className="hover:bg-slate-900/30">
+                                <td className="px-4 py-3 text-xs">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-12 bg-slate-950 rounded border border-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                      {student && (student.photo.includes('/') || student.photo.includes('.')) ? (
+                                        <img src={student.photo} alt={b.studentName} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span className="text-xl">{student ? student.photo : '👤'}</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div className="font-extrabold text-slate-200">{b.studentName}</div>
+                                      <div className="text-[10px] text-slate-500 font-mono">{b.studentNim}</div>
+                                      <div className="text-[9px] text-amber-500 font-semibold">{student ? (student.major + ' (' + student.angkatan + ')' + (student.phone ? ' • Telp: ' + student.phone : '')) : ''}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-xs">
+                                  <div className="font-bold text-slate-350">{b.facilityName}</div>
+                                  <span className="text-[9px] text-slate-500 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-850 uppercase tracking-wider">{b.facilityType}</span>
+                                  {b.reason && <div className="text-[10px] text-purple-400 font-medium mt-1">Tujuan: {b.reason}</div>}
+                                </td>
+                                <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                                  {new Date(b.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} s/d {new Date(b.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                </td>
+                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                  <div className="inline-flex space-x-1.5">
+                                    <button
+                                      onClick={() => handleApproveRoom(b.id)}
+                                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition"
+                                    >
+                                      Setujui
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpenReject(b.id)}
+                                      className="px-3 py-1.5 bg-rose-955/70 hover:bg-rose-900/70 border border-rose-900/30 text-rose-300 rounded-lg text-[10px] font-bold transition"
+                                    >
+                                      Tolak
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -514,27 +560,42 @@
                             </td>
                           </tr>
                         ) : (
-                          activeBookings.map(b => (
-                            <tr key={b.id} className="hover:bg-slate-900/30">
-                              <td className="px-4 py-3 text-xs">
-                                <div className="font-bold text-slate-200">{b.studentName}</div>
-                                <div className="text-[10px] text-slate-500 font-mono">{b.studentNim}</div>
-                              </td>
-                              <td className="px-4 py-3 text-xs">
-                                <span className="font-bold text-slate-350">{b.facilityName}</span>
-                                <span className="text-[9px] text-slate-500 block">({b.facilityType})</span>
-                              </td>
-                              <td className="px-4 py-3 text-xs font-mono text-cyan-400 font-bold">{b.token}</td>
-                              <td className="px-4 py-3 text-right">
-                                <button
-                                  onClick={() => handleDirectCheckout(b.id)}
-                                  className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 border border-rose-900/30 text-rose-300 rounded text-[10px] font-bold"
-                                >
-                                  Checkout
-                                </button>
-                              </td>
-                            </tr>
-                          ))
+                          activeBookings.map(b => {
+                            const student = DUMMY_STUDENTS.find(s => s.nim === b.studentNim);
+                            return (
+                              <tr key={b.id} className="hover:bg-slate-900/30">
+                                <td className="px-4 py-3 text-xs">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-12 bg-slate-950 rounded border border-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                      {student && (student.photo.includes('/') || student.photo.includes('.')) ? (
+                                        <img src={student.photo} alt={b.studentName} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span className="text-xl">{student ? student.photo : '👤'}</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div className="font-extrabold text-slate-200">{b.studentName}</div>
+                                      <div className="text-[10px] text-slate-500 font-mono">{b.studentNim}</div>
+                                      <div className="text-[9px] text-amber-500 font-semibold">{student ? (student.major + ' (' + student.angkatan + ')' + (student.phone ? ' • Telp: ' + student.phone : '')) : ''}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-xs">
+                                  <span className="font-bold text-slate-350">{b.facilityName}</span>
+                                  <span className="text-[9px] text-slate-500 block">({b.facilityType})</span>
+                                </td>
+                                <td className="px-4 py-3 text-xs font-mono text-cyan-400 font-bold">{b.token}</td>
+                                <td className="px-4 py-3 text-right">
+                                  <button
+                                    onClick={() => handleDirectCheckout(b.id)}
+                                    className="px-3 py-1.5 bg-rose-955/70 hover:bg-rose-900 border border-rose-900/30 text-rose-300 rounded-lg text-[10px] font-bold transition"
+                                  >
+                                    Checkout
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -707,8 +768,7 @@
                         <td className="px-4 py-2.5">
                           <div className="text-slate-300">{b.facilityName}</div>
                           <div className="text-[9px] text-slate-500">
-                            {b.facilityType}
-                            {b.status !== 'Ditolak' && b.reason && ` • Tujuan: ${b.reason}`}
+                            {b.facilityType}{b.status !== 'Ditolak' && b.reason ? (' • Tujuan: ' + b.reason) : ''}
                           </div>
                         </td>
                         <td className="px-4 py-2.5 text-[10px] whitespace-nowrap">

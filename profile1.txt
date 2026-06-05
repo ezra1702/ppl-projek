@@ -2,5 +2,7 @@ NIM: 245150307111009
 Nama: Christama Ezra Yudianto
 Program Studi: Teknik Komputer
 Fakultas: Ilmu Komputer
+Angkatan : 2024 
 Tanggal Lahir: 17 Februari 2006
 Foto: images/profile1.png
+phone : 082198084456
