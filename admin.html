@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FILKOM BORROW - Admin & Operator Dashboard</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & React-DOM CDNs -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel CDN for In-Browser JSX Compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- html5-qrcode CDN for Webcam Scanning -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    @keyframes scanAnimation {
+      0% { top: 0%; }
+      50% { top: 100%; }
+      100% { top: 0%; }
+    }
+    .animate-scan-line {
+      animation: scanAnimation 3s infinite linear;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const INITIAL_FACILITIES = [
+      { id: 'f1', name: 'GKM Lt.2', type: 'Ruangan', status: 'tersedia' },
+      { id: 'f2', name: 'Lab Komputer', type: 'Ruangan', status: 'tersedia' },
+      { id: 'f3', name: 'Ruang Rapat', type: 'Ruangan', status: 'tersedia' },
+      { id: 'f4', name: 'PS5 Station A', type: 'Game Corner', status: 'digunakan' },
+      { id: 'f5', name: 'PS5 Station B', type: 'Game Corner', status: 'tersedia' },
+      { id: 'f6', name: 'PC Gaming 1', type: 'Game Corner', status: 'tersedia' }
+    ];
+
+    const INITIAL_BOOKINGS = [
+      {
+        id: 'b1',
+        facilityId: 'f1',
+        facilityName: 'GKM Lt.2',
+        facilityType: 'Ruangan',
+        studentNim: '245150300111002',
+        studentName: 'Jahzeel',
+        startTime: '2026-06-05T09:00',
+        endTime: '2026-06-05T12:00',
+        status: 'Menunggu',
+        token: 'QR-RM-GKM2',
+        reason: ''
+      },
+      {
+        id: 'b2',
+        facilityId: 'f4',
+        facilityName: 'PS5 Station A',
+        facilityType: 'Game Corner',
+        studentNim: '245150300111008',
+        studentName: 'Abdillah',
+        startTime: '2026-06-05T16:00',
+        endTime: '2026-06-05T17:00',
+        status: 'Aktif',
+        token: 'QR-GC-8B92',
+        reason: ''
+      }
+    ];
+
+    function App() {
+      // ==========================================
+      // STATE MANAGEMENT
+      // ==========================================
+      const [bookings, setBookings] = useState([]);
+      const [facilities, setFacilities] = useState(INITIAL_FACILITIES);
+
+      // Operator Checkout Form Inputs
+      const [checkoutToken, setCheckoutToken] = useState('');
+      const [checkoutMessage, setCheckoutMessage] = useState({ text: '', type: '' });
+
+      // Operator Webcam Scanner States
+      const [operatorScanner, setOperatorScanner] = useState(null);
+      const [scannerActive, setScannerActive] = useState(false);
+      const [activeTabOperator, setActiveTabOperator] = useState('manual'); // 'manual' | 'scan'
+
+      // Staf Gedung Rejection Reason State
+      const [rejectingBookingId, setRejectingBookingId] = useState(null);
+      const [rejectionReason, setRejectionReason] = useState('');
+
+      const bookingsRef = useRef(bookings);
+
+      // Load bookings & setup localStorage
+      useEffect(() => {
+        const storedBookings = localStorage.getItem('filkom_bookings');
+        if (storedBookings) {
+          const parsed = JSON.parse(storedBookings);
+          setBookings(parsed);
+          bookingsRef.current = parsed;
+        } else {
+          localStorage.setItem('filkom_bookings', JSON.stringify(INITIAL_BOOKINGS));
+          setBookings(INITIAL_BOOKINGS);
+          bookingsRef.current = INITIAL_BOOKINGS;
+        }
+      }, []);
+
+      // Keep ref updated and calculate facility states dynamically
+      useEffect(() => {
+        bookingsRef.current = bookings;
+        
+        // Facilities status: occupied ('digunakan') if there is any 'Aktif' booking on it
+        setFacilities(prev => {
+          return prev.map(fac => {
+            const isActive = bookings.some(b => b.facilityId === fac.id && b.status === 'Aktif');
+            return {
+              ...fac,
+              status: isActive ? 'digunakan' : 'tersedia'
+            };
+          });
+        });
+      }, [bookings]);
+
+      // Storage sync interval (checks every 1 second for background tab edits)
+      useEffect(() => {
+        const syncInterval = setInterval(() => {
+          const data = localStorage.getItem('filkom_bookings');
+          if (data) {
+            const parsed = JSON.parse(data);
+            if (JSON.stringify(parsed) !== JSON.stringify(bookingsRef.current)) {
+              setBookings(parsed);
+            }
+          }
+        }, 1000);
+
+        return () => {
+          clearInterval(syncInterval);
+          if (operatorScanner) operatorScanner.stop().catch(e => {});
+        };
+      }, [operatorScanner]);
+
+      // ==========================================
+      // STAF GEDUNG A (ROOM APPROVALS) HANDLERS
+      // ==========================================
+      const handleApproveRoom = (bookingId) => {
+        const updatedBookings = bookingsRef.current.map(b => {
+          if (b.id === bookingId) {
+            return { ...b, status: 'Aktif' };
+          }
+          return b;
+        });
+
+        localStorage.setItem('filkom_bookings', JSON.stringify(updatedBookings));
+        setBookings(updatedBookings);
+
+        // Notify Student
+        const approvedB = updatedBookings.find(b => b.id === bookingId);
+        if (approvedB) {
+          pushNotification(
+            approvedB.studentNim,
+            `Persetujuan Diterima! Peminjaman ruang ${approvedB.facilityName} disetujui. Token QR: ${approvedB.token}`
+          );
+        }
+      };
+
+      const handleOpenReject = (bookingId) => {
+        setRejectingBookingId(bookingId);
+        setRejectionReason('');
+      };
+
+      const handleRejectRoom = () => {
+        if (!rejectionReason.trim()) {
+          alert('Harap masukkan alasan penolakan.');
+          return;
+        }
+
+        const updatedBookings = bookingsRef.current.map(b => {
+          if (b.id === rejectingBookingId) {
+            return { ...b, status: 'Ditolak', reason: rejectionReason };
+          }
+          return b;
+        });
+
+        localStorage.setItem('filkom_bookings', JSON.stringify(updatedBookings));
+        setBookings(updatedBookings);
+
+        const rejectedB = updatedBookings.find(b => b.id === rejectingBookingId);
+        if (rejectedB) {
+          pushNotification(
+            rejectedB.studentNim,
+            `Permohonan Ditolak! Sewa ${rejectedB.facilityName} ditolak. Alasan: "${rejectionReason}"`
+          );
+        }
+
+        setRejectingBookingId(null);
+        setRejectionReason('');
+      };
+
+      // ==========================================
+      // OPERATOR LOBBY (CHECK-OUT) HANDLERS
+      // ==========================================
+      const processCheckout = (queryText) => {
+        if (!queryText || !queryText.trim()) {
+          setCheckoutMessage({ text: 'Harap masukkan QR Token atau NIM Mahasiswa.', type: 'error' });
+          return false;
+        }
+
+        const query = queryText.trim().toUpperCase();
+
+        // Find the active booking matching either token or studentNim
+        const bookingIdx = bookingsRef.current.findIndex(b => 
+          b.status === 'Aktif' && 
+          (b.token.toUpperCase() === query || b.studentNim === query)
+        );
+
+        if (bookingIdx !== -1) {
+          const updatedBookings = [...bookingsRef.current];
+          const completedBooking = updatedBookings[bookingIdx];
+          updatedBookings[bookingIdx] = {
+            ...completedBooking,
+            status: 'Selesai'
+          };
+          localStorage.setItem('filkom_bookings', JSON.stringify(updatedBookings));
+          setBookings(updatedBookings);
+
+          // Notify student
+          pushNotification(
+            completedBooking.studentNim,
+            `Sewa ${completedBooking.facilityName} Anda telah diselesaikan (Checked-out oleh Operator Lobby).`
+          );
+
+          setCheckoutMessage({ 
+            text: `Check-out sukses! Fasilitas ${completedBooking.facilityName} (Peminjam: ${completedBooking.studentName}) sekarang tersedia kembali.`, 
+            type: 'success' 
+          });
+          setCheckoutToken('');
+          return true;
+        } else {
+          setCheckoutMessage({ 
+            text: `Tidak ditemukan peminjaman AKTIF yang cocok untuk "${query}".`, 
+            type: 'error' 
+          });
+          return false;
+        }
+      };
+
+      // Direct check-out by clicking button on row
+      const handleDirectCheckout = (bookingId) => {
+        const target = bookingsRef.current.find(b => b.id === bookingId);
+        if (target) {
+          processCheckout(target.token);
+        }
+      };
+
+      // Webcam Scanner Controller
+      const startOperatorScanner = () => {
+        if (operatorScanner) operatorScanner.stop().catch(e => {});
+        setScannerActive(true);
+        setCheckoutMessage({ text: '', type: '' });
+
+        setTimeout(() => {
+          try {
+            const scanner = new Html5Qrcode("operator-webcam-container");
+            scanner.start(
+              { facingMode: "environment" },
+              {
+                fps: 10,
+                qrbox: { width: 220, height: 220 }
+              },
+              (decodedText) => {
+                const ok = processCheckout(decodedText);
+                if (ok) {
+                  scanner.stop().then(() => {
+                    setScannerActive(false);
+                    setOperatorScanner(null);
+                  }).catch(err => console.error(err));
+                }
+              },
+              (error) => {}
+            ).then(() => {
+              setOperatorScanner(scanner);
+            }).catch(err => {
+              console.warn("Camera access failed. Simulation is available.", err);
+            });
+          } catch (e) {
+            console.error(e);
+          }
+        }, 150);
+      };
+
+      const stopOperatorScanner = () => {
+        if (operatorScanner) {
+          operatorScanner.stop().then(() => {
+            setOperatorScanner(null);
+            setScannerActive(false);
+          }).catch(err => {
+            console.error(err);
+            setOperatorScanner(null);
+            setScannerActive(false);
+          });
+        } else {
+          setScannerActive(false);
+        }
+      };
+
+      // ==========================================
+      // DB DEVELOPMENT UTILITIES
+      // ==========================================
+      const handleResetDatabase = () => {
+        if (confirm("Reset ulang seluruh transaksi dan notifikasi ke data dummy awal?")) {
+          localStorage.setItem('filkom_bookings', JSON.stringify(INITIAL_BOOKINGS));
+          setBookings(INITIAL_BOOKINGS);
+          bookingsRef.current = INITIAL_BOOKINGS;
+
+          const initNotifs = [
+            { id: 'n1', studentNim: '245150300111002', message: 'Selamat datang di portal scan FILKOM Borrow.', read: false, time: 'Baru saja' }
+          ];
+          localStorage.setItem('filkom_notifications', JSON.stringify(initNotifs));
+          setCheckoutMessage({ text: 'Database in-memory berhasil di-reset!', type: 'success' });
+          
+          if (operatorScanner) stopOperatorScanner();
+        }
+      };
+
+      const pushNotification = (studentNim, message) => {
+        const storedNotifs = JSON.parse(localStorage.getItem('filkom_notifications') || '[]');
+        const newNotif = {
+          id: `n-${Date.now()}`,
+          studentNim,
+          message,
+          read: false,
+          time: 'Baru saja'
+        };
+        localStorage.setItem('filkom_notifications', JSON.stringify([newNotif, ...storedNotifs]));
+      };
+
+      // Lists
+      const pendingRoomRequests = bookings.filter(b => b.status === 'Menunggu' && b.facilityType === 'Ruangan');
+      const activeBookings = bookings.filter(b => b.status === 'Aktif');
+
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none antialiased pb-12">
+          
+          {/* Header */}
+          <header className="sticky top-0 z-40 bg-slate-900 border-b border-cyan-500/30 text-white shadow-lg backdrop-blur-md bg-opacity-95">
+            <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="bg-cyan-500 text-slate-950 p-2 rounded-lg font-bold text-xs tracking-wider flex flex-col justify-center items-center h-10 w-10 shadow-md">
+                  <span className="leading-none text-[10px]">UB</span>
+                  <span className="font-extrabold text-[12px] leading-none">ADM</span>
+                </div>
+                <div>
+                  <h1 className="font-extrabold text-sm sm:text-base tracking-wide text-cyan-400">FILKOM BORROW</h1>
+                  <p className="text-[10px] text-slate-400">Dashboard Admin & Operator</p>
+                </div>
+              </div>
+
+              {/* Reset database button */}
+              <button 
+                onClick={handleResetDatabase}
+                className="px-3 py-1.5 rounded-lg border border-rose-900 bg-rose-950/65 hover:bg-rose-900 text-rose-200 hover:text-white transition text-xs font-semibold"
+              >
+                Reset Database
+              </button>
+            </div>
+          </header>
+
+          <main className="max-w-6xl w-full mx-auto px-4 py-6 space-y-6">
+            
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-xl">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Permohonan Ruang (Pending)</span>
+                  <span className="text-3xl font-extrabold text-purple-400 mt-1 block">{pendingRoomRequests.length} Pengajuan</span>
+                </div>
+                <div className="p-3 bg-purple-950/40 rounded-xl text-purple-400 border border-purple-900/10">
+                  ⏳
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-xl">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Sewa Aktif (Lobby)</span>
+                  <span className="text-3xl font-extrabold text-cyan-400 mt-1 block">{activeBookings.length} Aktif</span>
+                </div>
+                <div className="p-3 bg-cyan-950/40 rounded-xl text-cyan-400 border border-cyan-900/10">
+                  ⚡
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-xl">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Unit Terpakai</span>
+                  <span className="text-3xl font-extrabold text-emerald-400 mt-1 block">
+                    {facilities.filter(f => f.status === 'digunakan').length} / {facilities.length} Unit
+                  </span>
+                </div>
+                <div className="p-3 bg-emerald-950/40 rounded-xl text-emerald-400 border border-emerald-900/10">
+                  🏢
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Col 1 & 2 (Left): Operator checkout and Room approvals */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* Section A: Room Request Approvals (Staff) */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                  <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Persetujuan Ruangan (Staf Gedung A)</h3>
+                  
+                  {rejectingBookingId && (
+                    <div className="p-4 bg-slate-950 rounded-xl border border-rose-900/50 space-y-3 shadow-inner">
+                      <div className="flex justify-between items-center text-rose-400 text-xs font-bold uppercase tracking-wider">
+                        <span>Alasan Penolakan</span>
+                        <button onClick={() => setRejectingBookingId(null)} className="text-[10px] text-slate-500 hover:text-slate-300">Batal</button>
+                      </div>
+                      <input 
+                        type="text"
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        placeholder="Tulis alasan (misal: Ruangan sedang dibersihkan, Bentrok rapat)..."
+                        className="w-full bg-slate-900 border border-slate-850 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
+                      />
+                      <div className="flex justify-end space-x-2">
+                        <button onClick={handleRejectRoom} className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-bold">Kirim Penolakan</button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+                    <table className="min-w-full divide-y divide-slate-800">
+                      <thead className="bg-slate-950">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Pemohon</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Ruangan</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Waktu</th>
+                          <th className="px-4 py-2.5 text-center text-[10px] font-bold text-slate-500 uppercase">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-slate-900/20 divide-y divide-slate-800">
+                        {pendingRoomRequests.length === 0 ? (
+                          <tr>
+                            <td colSpan="4" className="px-4 py-6 text-center text-xs text-slate-550 italic">
+                              Tidak ada permohonan ruangan yang berstatus MENUNGGU.
+                            </td>
+                          </tr>
+                        ) : (
+                          pendingRoomRequests.map(b => (
+                            <tr key={b.id} className="hover:bg-slate-900/30">
+                              <td className="px-4 py-3 text-xs">
+                                <div className="font-bold text-slate-200">{b.studentName}</div>
+                                <div className="text-[10px] text-slate-500 font-mono">{b.studentNim}</div>
+                              </td>
+                              <td className="px-4 py-3 text-xs font-bold text-slate-350">{b.facilityName}</td>
+                              <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                                {new Date(b.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} s/d {new Date(b.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td className="px-4 py-3 text-center whitespace-nowrap">
+                                <div className="inline-flex space-x-1.5">
+                                  <button
+                                    onClick={() => handleApproveRoom(b.id)}
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold"
+                                  >
+                                    Setujui
+                                  </button>
+                                  <button
+                                    onClick={() => handleOpenReject(b.id)}
+                                    className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900/70 border border-rose-900/30 text-rose-300 rounded text-[10px] font-bold"
+                                  >
+                                    Tolak
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Section B: Active Bookings List (Lobby checkout overview) */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                  <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Daftar Peminjaman Aktif saat Ini</h3>
+                  <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+                    <table className="min-w-full divide-y divide-slate-800">
+                      <thead className="bg-slate-950">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Pemohon</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Unit Fasilitas</th>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Token QR</th>
+                          <th className="px-4 py-2.5 text-right text-[10px] font-bold text-slate-500 uppercase">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-slate-900/20 divide-y divide-slate-800">
+                        {activeBookings.length === 0 ? (
+                          <tr>
+                            <td colSpan="4" className="px-4 py-6 text-center text-xs text-slate-550 italic">
+                              Belum ada sewa unit yang berstatus AKTIF.
+                            </td>
+                          </tr>
+                        ) : (
+                          activeBookings.map(b => (
+                            <tr key={b.id} className="hover:bg-slate-900/30">
+                              <td className="px-4 py-3 text-xs">
+                                <div className="font-bold text-slate-200">{b.studentName}</div>
+                                <div className="text-[10px] text-slate-500 font-mono">{b.studentNim}</div>
+                              </td>
+                              <td className="px-4 py-3 text-xs">
+                                <span className="font-bold text-slate-350">{b.facilityName}</span>
+                                <span className="text-[9px] text-slate-500 block">({b.facilityType})</span>
+                              </td>
+                              <td className="px-4 py-3 text-xs font-mono text-cyan-400 font-bold">{b.token}</td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => handleDirectCheckout(b.id)}
+                                  className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 border border-rose-900/30 text-rose-300 rounded text-[10px] font-bold"
+                                >
+                                  Checkout
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Col 3: Checkout panel (Input NIM / Scanner) */}
+              <div className="space-y-6">
+                
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                  
+                  {/* Tabs */}
+                  <div className="flex border-b border-slate-800">
+                    <button
+                      onClick={() => { setActiveTabOperator('manual'); stopOperatorScanner(); }}
+                      className={`flex-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-center ${
+                        activeTabOperator === 'manual'
+                          ? 'border-b-2 border-cyan-500 text-cyan-500'
+                          : 'text-slate-500 hover:text-slate-350'
+                      }`}
+                    >
+                      Ketik Token/NIM
+                    </button>
+                    <button
+                      onClick={() => setActiveTabOperator('scan')}
+                      className={`flex-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-center ${
+                        activeTabOperator === 'scan'
+                          ? 'border-b-2 border-cyan-500 text-cyan-500'
+                          : 'text-slate-500 hover:text-slate-350'
+                      }`}
+                    >
+                      Scan Kamera QR
+                    </button>
+                  </div>
+
+                  {checkoutMessage.text && (
+                    <div className={`p-3 rounded-lg text-xs flex items-start space-x-2 ${
+                      checkoutMessage.type === 'success' 
+                        ? 'bg-emerald-950/70 border border-emerald-900/40 text-emerald-300' 
+                        : 'bg-rose-950/70 border border-rose-900/40 text-rose-300'
+                    }`}>
+                      <span>{checkoutMessage.text}</span>
+                    </div>
+                  )}
+
+                  {activeTabOperator === 'manual' ? (
+                    <form 
+                      onSubmit={(e) => { e.preventDefault(); processCheckout(checkoutToken); }}
+                      className="space-y-3"
+                    >
+                      <div>
+                        <label className="block text-[10px] text-slate-500 font-bold uppercase">QR Token atau NIM Mahasiswa:</label>
+                        <input
+                          type="text"
+                          value={checkoutToken}
+                          onChange={(e) => setCheckoutToken(e.target.value)}
+                          placeholder="Contoh: QR-GC-8B92 atau 24515..."
+                          className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-lg transition"
+                      >
+                        Proses Check-Out
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="space-y-4">
+                      
+                      {/* Webcam scan reader box */}
+                      <div className="relative rounded-xl border border-slate-850 overflow-hidden bg-slate-950 aspect-video flex flex-col justify-center items-center">
+                        <div id="operator-webcam-container" className="absolute inset-0 w-full h-full object-cover"></div>
+                        
+                        {scannerActive && <div className="absolute inset-x-0 h-[2px] bg-emerald-500 shadow-[0_0_8px_2px_#10B981] animate-scan-line z-20"></div>}
+
+                        {!scannerActive ? (
+                          <div className="text-center p-4 z-10 space-y-2">
+                            <svg className="w-8 h-8 text-slate-705 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <p className="text-[10px] text-slate-500">Kamera dinonaktifkan</p>
+                          </div>
+                        ) : (
+                          <div className="absolute bottom-2 left-2 z-10 bg-slate-950/80 px-2 py-0.5 rounded text-[9px] text-emerald-400 font-mono flex items-center space-x-1 border border-emerald-500/20">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            <span>Kamera Scan Aktif</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={scannerActive ? stopOperatorScanner : startOperatorScanner}
+                        className={`w-full py-1.5 rounded-lg text-xs font-bold uppercase transition ${
+                          scannerActive 
+                            ? 'bg-rose-950 border border-rose-900/40 text-rose-300' 
+                            : 'bg-slate-800 border border-slate-750 text-slate-200 hover:bg-slate-700'
+                        }`}
+                      >
+                        {scannerActive ? 'Matikan Kamera' : 'Buka Kamera'}
+                      </button>
+
+                      {/* Simulation panel fallback */}
+                      <div className="pt-3 border-t border-slate-800 space-y-2">
+                        <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Simulasi Scan (Tanpa Webcam):</span>
+                        <div className="flex gap-2">
+                          <select
+                            id="simulation-operator-select"
+                            className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-350 focus:outline-none"
+                          >
+                            {activeBookings.length === 0 ? (
+                              <option value="">-- Tidak ada sewa aktif --</option>
+                            ) : (
+                              activeBookings.map(b => (
+                                <option key={b.id} value={b.token}>
+                                  {b.studentName} - {b.facilityName} ({b.token})
+                                </option>
+                              ))
+                            )}
+                          </select>
+                          <button
+                            type="button"
+                            disabled={activeBookings.length === 0}
+                            onClick={() => {
+                              const sel = document.getElementById('simulation-operator-select');
+                              if (sel && sel.value) processCheckout(sel.value);
+                            }}
+                            className="px-3.5 py-1.5 bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-850 disabled:text-slate-600 text-slate-950 text-xs font-bold rounded-lg transition"
+                          >
+                            Pindai
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+            </div>
+
+            {/* Global Logs Table */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Log Riwayat Seluruh Transaksi</h3>
+              
+              <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+                <table className="min-w-full divide-y divide-slate-800">
+                  <thead className="bg-slate-950">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">ID Sewa</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Mahasiswa</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Unit Fasilitas</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Waktu Sewa</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Status</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Informasi QR / Alasan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-slate-900/10 divide-y divide-slate-800 text-slate-400">
+                    {bookings.map(b => (
+                      <tr key={b.id} className="text-xs hover:bg-slate-900/20">
+                        <td className="px-4 py-2.5 font-mono text-[10px] text-slate-500">{b.id}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="text-slate-300 font-bold">{b.studentName}</div>
+                          <div className="text-[9px] text-slate-500 font-mono">{b.studentNim}</div>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="text-slate-300">{b.facilityName}</div>
+                          <div className="text-[9px] text-slate-500">{b.facilityType}</div>
+                        </td>
+                        <td className="px-4 py-2.5 text-[10px] whitespace-nowrap">
+                          {b.startTime} - {b.endTime}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                            b.status === 'Aktif' ? 'bg-emerald-950 text-emerald-400' :
+                            b.status === 'Menunggu' ? 'bg-amber-950 text-amber-400' :
+                            b.status === 'Ditolak' ? 'bg-rose-950 text-rose-400' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {b.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-[10px]">
+                          {b.status === 'Ditolak' && b.reason ? (
+                            <span className="text-rose-400 italic">Ditolak: "{b.reason}"</span>
+                          ) : (
+                            <span>Token: {b.token}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </main>
+          
+          <footer className="mt-auto text-center text-xs text-slate-700">
+            <p>© 2026 Fakultas Ilmu Komputer, Universitas Brawijaya. In-Memory LocalStorage Prototype.</p>
+          </footer>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
