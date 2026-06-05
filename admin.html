@@ -462,7 +462,10 @@
                                 <div className="font-bold text-slate-200">{b.studentName}</div>
                                 <div className="text-[10px] text-slate-500 font-mono">{b.studentNim}</div>
                               </td>
-                              <td className="px-4 py-3 text-xs font-bold text-slate-350">{b.facilityName}</td>
+                              <td className="px-4 py-3 text-xs">
+                                <div className="font-bold text-slate-350">{b.facilityName}</div>
+                                {b.reason && <div className="text-[10px] text-amber-400 font-medium">Tujuan: {b.reason}</div>}
+                              </td>
                               <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
                                 {new Date(b.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} s/d {new Date(b.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                               </td>
@@ -703,7 +706,10 @@
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="text-slate-300">{b.facilityName}</div>
-                          <div className="text-[9px] text-slate-500">{b.facilityType}</div>
+                          <div className="text-[9px] text-slate-500">
+                            {b.facilityType}
+                            {b.status !== 'Ditolak' && b.reason && ` • Tujuan: ${b.reason}`}
+                          </div>
                         </td>
                         <td className="px-4 py-2.5 text-[10px] whitespace-nowrap">
                           {b.startTime} - {b.endTime}

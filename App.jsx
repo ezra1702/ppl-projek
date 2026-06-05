@@ -7,7 +7,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 const DUMMY_USERS = {
   mahasiswa: [
     { nim: '245150300111002', password: 'mhs', name: 'Jahzeel', role: 'mahasiswa' },
-    { nim: '245150300111008', password: 'mhs2', name: 'Abdillah', role: 'mahasiswa' }
+    { nim: '245150300111008', password: 'mhs2', name: 'Abdillah', role: 'mahasiswa' },
+    { nim: '245150307111009', password: 'mhs3', name: 'Christama Ezra Yudianto', role: 'mahasiswa' }
   ],
   operator: { username: 'operator', password: 'op123', name: 'Operator Lobby', role: 'operator' },
   staf: { username: 'staf', password: 'staf123', name: 'Staf Gedung A', role: 'staf' }

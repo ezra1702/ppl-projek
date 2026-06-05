@@ -26,6 +26,7 @@ QR_DATA = {
     # KTM Student Cards
     "ktm_jahzeel.png": "KTM-245150300111002",
     "ktm_abdillah.png": "KTM-245150300111008",
+    "ktm_ezra.png": "KTM-245150307111009",
     
     # Facilities
     "facility_gkm_lt2.png": "FAC-f1",
